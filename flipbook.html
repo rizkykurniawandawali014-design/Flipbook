@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Remaja Sehat, Gizi Seimbang</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #10B981; 
+            --secondary: #3B82F6; 
+            --bg-color: #F0FDF4; 
+            --text-main: #1F2937;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #e5e7eb;
+            background-image: radial-gradient(#d1d5db 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow: hidden; 
+            touch-action: none; 
+        }
+
+        h1, h2, h3 {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        #book-container {
+            perspective: 1500px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border-radius: 1.5rem;
+            background: white;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .book-binding {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 30px;
+            background: linear-gradient(to right, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.05) 20%, transparent 100%);
+            z-index: 50;
+            border-left: 5px solid #059669; 
+            pointer-events: none;
+        }
+
+        /* Transisi Geser Halus */
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            opacity: 0;
+            transform: translateX(100%) scale(0.95);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            visibility: hidden;
+            overflow: hidden;
+        }
+
+        .page.active {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+            visibility: visible;
+            z-index: 10;
+        }
+
+        .scroll-area::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scroll-area::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .scroll-area::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        /* Animasi */
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(2deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+        .animate-float {
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes heartbeat {
+            0% { transform: scale(1); }
+            15% { transform: scale(1.15); }
+            30% { transform: scale(1); }
+            45% { transform: scale(1.15); }
+            60% { transform: scale(1); }
+        }
+        .animate-heartbeat {
+            animation: heartbeat 2s infinite;
+        }
+
+        @keyframes wiggle {
+            0%, 100% { transform: rotate(-3deg); }
+            50% { transform: rotate(3deg); }
+        }
+        .animate-wiggle {
+            animation: wiggle 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-shadow {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .video-banner {
+            animation: pulse-shadow 2s infinite;
+            transition: transform 0.3s ease;
+        }
+        .video-banner:hover, .video-banner:active {
+            transform: scale(0.98);
+        }
+
+        .audio-player {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(5px);
+            border-top: 1px solid #e5e7eb;
+            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen w-full p-2 sm:p-4">
+
+    <!-- Kontainer Buku -->
+    <div id="book-container" class="w-full max-w-md h-[90vh] sm:h-[85vh] relative flex flex-col bg-white">
+        <div class="book-binding"></div>
+
+        <!-- Area Render Halaman -->
+        <div id="pages-container" class="relative w-full h-full flex-grow">
+            <!-- Halaman di-inject lewat JS -->
+        </div>
+
+        <!-- Kontrol Audio Global -->
+        <div class="audio-player absolute bottom-[60px] left-0 w-full px-4 py-2 flex items-center justify-between z-40">
+            <div class="flex items-center space-x-3 w-full">
+                <button id="btn-play-audio" class="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg hover:bg-emerald-600 active:scale-95 transition-all focus:outline-none">
+                    <i class="fas fa-play text-sm" id="icon-audio"></i>
+                </button>
+                <div class="flex-grow">
+                    <p class="text-[11px] sm:text-xs font-bold text-gray-700" id="audio-status">Putar Suara Penjelasan</p>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1 relative overflow-hidden">
+                        <div class="bg-emerald-500 h-1.5 rounded-full w-0 transition-all duration-300" id="audio-progress"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigasi Bawah -->
+        <div class="absolute bottom-0 left-0 w-full h-[60px] bg-white border-t border-gray-100 flex items-center justify-between px-4 z-50 rounded-b-1.5rem">
+            <button id="btn-prev" class="px-4 py-2 rounded-full bg-gray-100 text-gray-600 font-semibold text-sm hover:bg-gray-200 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                <i class="fas fa-chevron-left mr-1"></i> Prev
+            </button>
+            <div class="text-sm font-bold text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
+                <span id="page-indicator">1 / 12</span>
+            </div>
+            <button id="btn-next" class="px-4 py-2 rounded-full bg-emerald-500 text-white font-semibold text-sm hover:bg-emerald-600 active:scale-95 shadow-md shadow-emerald-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                Next <i class="fas fa-chevron-right ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Peringatan Orientasi Layar -->
+    <div id="orientation-warning" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-6 text-center hidden">
+        <i class="fas fa-mobile-alt text-5xl text-emerald-500 mb-4 animate-wiggle"></i>
+        <h2 class="text-xl font-bold text-gray-800 mb-2">Mohon Putar Perangkat Anda</h2>
+        <p class="text-gray-600">Buku saku ini paling baik dilihat dalam mode potret (berdiri).</p>
+    </div>
+
+    <script>
+        /* ========================================================================
+           SISTEM AUDIO HYBRID:
+           Jika Anda memiliki file rekaman suara sendiri (misal: "Matahari terbenam.mp3"),
+           upload file tersebut ke internet (hosting/Google Drive direct link),
+           lalu tempelkan linknya di bawah ini sesuai urutan halaman.
+           Jika dikosongkan (""), sistem akan otomatis menggunakan AI Voice bawaan HP.
+           ======================================================================== */
+        const sumberSuaraMP3 = {
+            0: "", // Link MP3 untuk Halaman Sampul (Cover)
+            1: "", // Link MP3 untuk Kata Pengantar
+            2: "", // Link MP3 untuk Pengertian Obesitas
+            3: "", // Link MP3 untuk Penyebab Obesitas
+            4: "", // Link MP3 untuk Awas Pola Makan
+            5: "", // Link MP3 untuk Dampak Fisik
+            6: "", // Link MP3 untuk Dampak Mental
+            7: "", // Link MP3 untuk Cara Mencegah
+            8: "", // Link MP3 untuk Cara Mengatasi
+            9: "", // Link MP3 untuk Mitos vs Fakta
+            10: "", // Link MP3 untuk Kesimpulan
+            11: ""  // Link MP3 untuk Video Edukasi
+        };
+
+        const bookData = [
+            {
+                id: 0,
+                type: 'cover',
+                title: "Peningkatan Pengetahuan dan Sikap Tentang Pencegahan Obesitas Pada Remaja",
+                subtitle: "Remaja Sehat, Gizi Seimbang: Bebas Obesitas, Tumbuh Cerdas dan Percaya Diri!",
+                icon: "🏃‍♂️ 🍏 🌟",
+                bgColor: "bg-emerald-500",
+                textColor: "text-white",
+                audioText: "Selamat datang di Buku Saku Digital: Remaja Sehat, Gizi Seimbang. Bebas Obesitas, Tumbuh Cerdas dan Percaya Diri! Mari kita buka halaman selanjutnya untuk memulai perjalanan sehat kita."
+            },
+            {
+                id: 1,
+                title: "Kata Pengantar",
+                subtitle: "Mengapa Ini Penting?",
+                content: `
+                    <div class="space-y-4 text-gray-700 text-base leading-relaxed">
+                        <p>Halo, Sobat Sehat! Masa remaja adalah masa emas pertumbuhan. Namun, ada satu ancaman kesehatan yang sering tidak kita sadari: <strong>Obesitas</strong>.</p>
+                        <p>Buku saku ini dibuat untuk membekali kamu dengan pengetahuan yang tepat tentang gizi seimbang. Mencegah obesitas sejak dini adalah kunci untuk tumbuh menjadi remaja yang sehat, aktif, berprestasi, dan penuh percaya diri.</p>
+                        <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 mt-4 animate-float flex flex-col items-center text-center">
+                            <span class="text-5xl mb-2">🏫 🎒 👫</span>
+                            <p class="font-semibold text-blue-800 text-sm">Mari wujudkan generasi remaja sekolah yang sehat dan cerdas!</p>
+                        </div>
+                    </div>
+                `,
+                audioText: "Halo, sobat sehat! Masa remaja adalah masa emas pertumbuhan. Buku saku ini dibuat agar kamu paham tentang gizi seimbang. Mencegah obesitas sejak dini adalah investasi terbaik agar kamu tumbuh sehat, cerdas, dan percaya diri."
+            },
+            {
+                id: 2,
+                title: "Apa itu Obesitas?",
+                subtitle: "Kenali Kondisinya",
+                content: `
+                    <div class="space-y-4 text-gray-700">
+                        <div class="bg-red-50 p-4 rounded-xl border-l-4 border-red-500">
+                            <h3 class="font-bold text-red-700 mb-1">Definisi Obesitas</h3>
+                            <p class="text-sm">Obesitas atau kegemukan adalah kondisi medis berupa penumpukan atau akumulasi lemak berlebih dalam tubuh yang menimbulkan risiko buruk terhadap kesehatan.</p>
+                        </div>
+                        <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
+                            <div class="w-1/2 text-center border-r border-gray-300 pr-2">
+                                <span class="text-4xl block mb-1">🧍‍♂️</span>
+                                <span class="text-xs font-bold text-emerald-600">Kelebihan Berat</span>
+                                <p class="text-[10px] text-gray-500">Peringatan awal</p>
+                            </div>
+                            <div class="w-1/2 text-center pl-2">
+                                <span class="text-4xl block mb-1">🧍‍♂️🍔</span>
+                                <span class="text-xs font-bold text-red-600">Obesitas</span>
+                                <p class="text-[10px] text-gray-500">Penumpukan lemak ekstrem</p>
+                            </div>
+                        </div>
+                        <p class="text-sm"><strong>Siapa yang Berisiko?</strong> Kegemukan bukan hanya terjadi pada orang dewasa saat bertambah usia. Kondisi ini bisa terjadi pada siapa saja, termasuk balita, anak-anak, hingga usia remaja seperti kita!</p>
+                    </div>
+                `,
+                audioText: "Tahukah kamu apa itu obesitas? Obesitas atau kegemukan adalah kondisi di mana terjadi penumpukan lemak berlebih di dalam tubuh kita yang bisa membahayakan kesehatan. Ingat ya, kegemukan ini nggak cuma terjadi pada orang dewasa aja, tapi bisa dialami sejak balita, anak-anak, sampai usia remaja kayak kita! Jangan disepelekan ya!"
+            },
+            {
+                id: 3,
+                title: "Penyebab & Faktor",
+                subtitle: "Mengapa Bisa Terjadi?",
+                content: `
+                    <div class="space-y-3">
+                        <p class="text-sm text-gray-600 mb-2">Kegemukan bisa dipengaruhi oleh faktor keturunan (genetik), namun faktor utamanya adalah:</p>
+                        
+                        <div class="flex items-start space-x-3 p-2 bg-orange-50 rounded-lg">
+                            <span class="text-2xl mt-1">🛌</span>
+                            <div>
+                                <h4 class="font-bold text-orange-800 text-sm">Kurang Tidur & Sedentari</h4>
+                                <p class="text-xs text-gray-600">Terlalu lama rebahan dan kebiasaan bermain HP/gadget mengurangi pembakaran kalori.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start space-x-3 p-2 bg-blue-50 rounded-lg">
+                            <span class="text-2xl mt-1">🏃‍♂️</span>
+                            <div>
+                                <h4 class="font-bold text-blue-800 text-sm">Kurang Aktivitas Fisik</h4>
+                                <p class="text-xs text-gray-600">Jarang bergerak atau berolahraga membuat kalori menumpuk menjadi lemak.</p>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                audioText: "Kenapa sih remaja kayak kita bisa gampang kena obesitas? Nah, selain karena faktor genetik atau keturunan, pemicu utamanya adalah pola hidup. Seperti kurang aktivitas fisik, sering rebahan main gadget, dan pola tidur yang berantakan."
+            },
+            {
+                id: 4,
+                title: "Awas Pola Makan!",
+                subtitle: "Musuh Tersembunyi",
+                content: `
+                    <div class="space-y-4">
+                        <div class="text-center animate-wiggle py-4">
+                            <span class="text-6xl drop-shadow-md">🍔 🍟 🥤</span>
+                        </div>
+                        <div class="bg-red-50 p-4 rounded-xl border border-red-100">
+                            <h3 class="font-bold text-red-700 text-sm mb-2"><i class="fas fa-exclamation-triangle mr-1"></i> Makanan Cepat Saji (Junk Food)</h3>
+                            <p class="text-xs text-gray-700 mb-3">Konsumsi junk food atau makanan cepat saji yang berlebihan menjadi faktor risiko utama meningkatnya berat badan menuju obesitas.</p>
+                            
+                            <h3 class="font-bold text-red-700 text-sm mb-2"><i class="fas fa-candy-cane mr-1"></i> Tinggi Gula & Lemak</h3>
+                            <p class="text-xs text-gray-700">Kebiasaan mengonsumsi makanan manis dan tinggi lemak (seperti kuning telur, susu full cream, mentega) secara berlebih akan ditimbun menjadi lemak tubuh.</p>
+                        </div>
+                    </div>
+                `,
+                audioText: "Coba cek pola makanmu! Apakah kamu sering banget makan junk food atau makanan cepat saji? Atau doyan mengonsumsi makanan manis dan tinggi lemak? Kalau makanan tinggi gula dan lemak ini dikonsumsi berlebih tanpa kontrol, kalori yang menumpuk bakal bikin berat badan melonjak drastis menuju obesitas!"
+            },
+            {
+                id: 5,
+                title: "Dampak Fisik",
+                subtitle: "Penyakit Berbahaya",
+                content: `
+                    <div class="space-y-3">
+                        <p class="text-sm text-gray-700">Jangan disepelekan, obesitas memicu penyakit serius di masa depan:</p>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-center flex flex-col items-center">
+                                <span class="text-3xl text-red-500 animate-heartbeat mb-1">❤️</span>
+                                <span class="text-[10px] font-bold">Penyakit Jantung</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-center flex flex-col items-center">
+                                <span class="text-3xl text-blue-500 mb-1">🩸</span>
+                                <span class="text-[10px] font-bold">Diabetes & Hipertensi</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-center flex flex-col items-center">
+                                <span class="text-3xl text-gray-500 mb-1">🫁</span>
+                                <span class="text-[10px] font-bold">Gangguan Napas</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-lg border border-gray-200 shadow-sm text-center flex flex-col items-center">
+                                <span class="text-3xl text-orange-500 mb-1">🦴</span>
+                                <span class="text-[10px] font-bold">Nyeri Tulang/Sendi</span>
+                            </div>
+                        </div>
+                        <div class="bg-yellow-50 p-2 rounded text-xs text-yellow-800 text-center font-semibold mt-2">
+                            Dapat memicu gangguan tidur berupa mengorok (sleep apnea).
+                        </div>
+                    </div>
+                `,
+                audioText: "Jangan disepelekan, karena obesitas bisa jadi pemicu penyakit berbahaya lho! Seperti darah tinggi atau hipertensi, kencing manis atau diabetes melitus, nyeri sendi, penyakit jantung, sampai bikin kita sesak napas dan mengorok saat tidur."
+            },
+            {
+                id: 6,
+                title: "Dampak Mental & Sosial",
+                subtitle: "Pengaruh di Sekolah",
+                content: `
+                    <div class="space-y-4">
+                        <div class="flex justify-center mb-4">
+                            <div class="relative w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center animate-float">
+                                <span class="text-5xl">😔</span>
+                                <span class="absolute -bottom-2 -right-2 text-2xl">📉</span>
+                            </div>
+                        </div>
+                        
+                        <ul class="space-y-3">
+                            <li class="flex items-start">
+                                <i class="fas fa-arrow-down text-red-500 mt-1 mr-2"></i>
+                                <div>
+                                    <h4 class="font-bold text-sm text-gray-800">Menurunkan Kepercayaan Diri</h4>
+                                    <p class="text-xs text-gray-600">Menyebabkan timbulnya rasa kurang percaya diri dan minder dalam pergaulan sehari-hari.</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-brain text-purple-500 mt-1 mr-2"></i>
+                                <div>
+                                    <h4 class="font-bold text-sm text-gray-800">Mengganggu Konsentrasi Belajar</h4>
+                                    <p class="text-xs text-gray-600">Tubuh tidak bugar akibat obesitas dapat mengganggu fokus di kelas.</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-users-slash text-gray-500 mt-1 mr-2"></i>
+                                <div>
+                                    <h4 class="font-bold text-sm text-gray-800">Membatasi Aktivitas Sosial</h4>
+                                    <p class="text-xs text-gray-600">Cenderung malas bermain dan bersosialisasi dengan teman sebaya.</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                `,
+                audioText: "Obesitas itu nggak cuma berpengaruh buruk buat fisik, tapi juga buat mental dan sosial kita di sekolah. Berat badan yang berlebih sering banget bikin kita jadi kurang percaya diri dan minder. Akibatnya, kita jadi malas bersosialisasi dan konsentrasi belajar di kelas pun bisa menurun."
+            },
+            {
+                id: 7,
+                title: "Cara Mencegah (Diet)",
+                subtitle: "Pola Makan Sehat",
+                content: `
+                    <div class="space-y-4">
+                        <p class="text-sm text-center font-semibold text-emerald-600">Mulailah dari mengatur apa yang kita makan!</p>
+                        
+                        <div class="bg-white p-3 rounded-xl shadow-sm border border-emerald-100 flex items-center space-x-3">
+                            <span class="text-3xl bg-emerald-50 p-2 rounded-full">🍳</span>
+                            <div>
+                                <h4 class="font-bold text-sm">Wajib Sarapan Pagi</h4>
+                                <p class="text-[11px] text-gray-600">Sarapan teratur cara efektif menjaga metabolisme tubuh dan berat badan ideal.</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-3 rounded-xl shadow-sm border border-emerald-100 flex items-center space-x-3">
+                            <span class="text-3xl bg-emerald-50 p-2 rounded-full">🍱</span>
+                            <div>
+                                <h4 class="font-bold text-sm">Bawa Bekal Sehat</h4>
+                                <p class="text-[11px] text-gray-600">Membantu mengontrol nutrisi dan menghindari jajanan kotor yang memicu obesitas.</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-3 rounded-xl shadow-sm border border-emerald-100 flex items-center space-x-3">
+                            <span class="text-3xl bg-emerald-50 p-2 rounded-full">🥗</span>
+                            <div>
+                                <h4 class="font-bold text-sm">Perbanyak Serat</h4>
+                                <p class="text-[11px] text-gray-600">Sayur & buah kaya serat melancarkan pencernaan dengan sehat.</p>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                audioText: "Terus gimana cara ampuh mencegahnya? Mulailah mengatur pola makan! Pertama, jangan lewatkan sarapan pagi ya. Kedua, biasakan bawa bekal makanan sehat dari rumah agar tidak jajan sembarangan. Dan ketiga, banyakin konsumsi makanan berserat seperti sayur dan buah."
+            },
+            {
+                id: 8,
+                title: "Cara Mengatasi Obesitas",
+                subtitle: "Langkah Nyata",
+                content: `
+                    <div class="space-y-3">
+                        <div class="bg-emerald-50 p-3 rounded-lg border-l-4 border-emerald-500">
+                            <h4 class="font-bold text-sm text-emerald-800"><i class="fas fa-ban text-red-500 mr-1"></i> Batasi Lemak & Gula</h4>
+                            <p class="text-xs text-gray-700 mt-1">Sangat penting untuk mengurangi porsi makanan berlemak tinggi, gorengan, dan minuman kemasan yang manis.</p>
+                        </div>
+
+                        <div class="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
+                            <h4 class="font-bold text-sm text-blue-800"><i class="fas fa-running mr-1"></i> Berolahraga Teratur</h4>
+                            <p class="text-xs text-gray-700 mt-1">Jangan hanya saat jam sekolah! Lakukan aktivitas fisik secara konsisten setiap hari untuk membakar kalori berlebih.</p>
+                        </div>
+                        
+                        <div class="bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-500">
+                            <h4 class="font-bold text-sm text-yellow-800"><i class="fas fa-water mr-1"></i> Minum Air Putih</h4>
+                            <p class="text-xs text-gray-700 mt-1">Ganti minuman manis dengan air putih. Air putih nol kalori dan sangat baik bagi tubuh.</p>
+                        </div>
+                    </div>
+                `,
+                audioText: "Selain menjaga makanan, kamu wajib membatasi konsumsi makanan berlemak dan minuman manis. Yang terpenting, lakukan aktivitas fisik atau olahraga secara rutin setiap hari untuk mendapatkan berat badan ideal, jangan cuma bergerak pas jam pelajaran olahraga saja!"
+            },
+            {
+                id: 9,
+                title: "Mitos vs Fakta",
+                subtitle: "Ketahui Kebenarannya",
+                content: `
+                    <div class="relative bg-white rounded-xl shadow-sm border border-gray-200 p-4 overflow-hidden mb-4">
+                        <div class="absolute -right-4 -top-4 opacity-10 text-6xl">💡</div>
+                        <h4 class="font-bold text-red-600 mb-1 text-sm"><i class="fas fa-times-circle mr-1"></i> MITOS:</h4>
+                        <p class="text-xs text-gray-600 italic mb-3">"Remaja butuh banyak makanan manis biar energinya penuh terus."</p>
+                        
+                        <h4 class="font-bold text-emerald-600 mb-1 text-sm"><i class="fas fa-check-circle mr-1"></i> FAKTA:</h4>
+                        <p class="text-xs text-gray-700">Itu mitos! Membatasi makanan manis adalah tindakan yang tepat untuk mencegah obesitas. Energi terbaik didapat dari makanan bergizi seimbang.</p>
+                    </div>
+
+                    <div class="bg-indigo-50 p-3 rounded-lg text-center">
+                        <span class="text-2xl mb-1 block">😴</span>
+                        <h4 class="font-bold text-sm text-indigo-800">Tips Ekstra: Tidur Cukup</h4>
+                        <p class="text-[11px] text-gray-600">Tidur 7-9 jam semalam membantu menstabilkan hormon pengatur nafsu makan.</p>
+                    </div>
+                `,
+                audioText: "Banyak yang bilang kalau sering mengonsumsi makanan tinggi gula itu bagus buat stamina remaja. Itu salah besar! Faktanya, membatasi makanan manis adalah tindakan paling tepat untuk mencegah obesitas. Jangan lupa juga untuk tidur yang cukup ya!"
+            },
+            {
+                id: 10,
+                title: "Kesimpulan",
+                subtitle: "Investasi Masa Depan",
+                content: `
+                    <div class="flex flex-col items-center text-center space-y-4 pt-4">
+                        <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center animate-pulse">
+                            <span class="text-4xl">🎓</span>
+                        </div>
+                        <h3 class="font-bold text-lg text-emerald-800">Gizi Baik = Tumbuh Maksimal</h3>
+                        <p class="text-sm text-gray-700">
+                            Remaja dengan status gizi baik mampu mencapai kesempurnaan pertumbuhan fisik dan kematangan fungsi tubuh secara optimal.
+                        </p>
+                        <p class="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200 w-full font-medium">
+                            Menjaga berat badan ideal melalui gizi seimbang dan pembatasan asupan makanan adalah <strong>investasi terbaik</strong> bagi kesehatan jangka panjang.
+                        </p>
+                    </div>
+                `,
+                audioText: "Kesimpulannya, remaja dengan status gizi yang baik akan mampu mencapai pertumbuhan fisik yang sempurna. Menjaga berat badan ideal melalui gizi seimbang adalah investasi terbaik demi masa depan yang sehat, berprestasi, dan penuh percaya diri!"
+            },
+            {
+                id: 11,
+                title: "Video Edukasi",
+                subtitle: "Tonton & Pelajari Lebih Lanjut",
+                content: `
+                    <div class="flex flex-col items-center justify-center h-full space-y-6 pb-10">
+                        <p class="text-sm text-center text-gray-600 mb-2">Pahami lebih dalam mengenai bahaya obesitas dan cara pencegahannya melalui tayangan video berikut.</p>
+                        
+                        <!-- Banner Video Interaktif -->
+                        <a href="https://youtu.be/rYjV-mK4vFA?si=wIRm1ExD9Z-imtqV" target="_blank" rel="noopener noreferrer" class="video-banner w-full bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-5 text-white flex flex-col items-center shadow-xl cursor-pointer relative overflow-hidden group">
+                            <!-- Aksen background -->
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 transform group-hover:scale-110 transition-transform"></div>
+                            <div class="absolute bottom-0 left-0 w-24 h-24 bg-black opacity-10 rounded-full -ml-8 -mb-8 transform group-hover:scale-110 transition-transform"></div>
+                            
+                            <span class="text-5xl mb-3 z-10 animate-wiggle">🎬</span>
+                            <h3 class="font-bold text-lg mb-1 z-10 text-center">Tonton Video Edukasi</h3>
+                            <div class="flex items-center space-x-2 z-10 bg-white/20 px-4 py-2 rounded-full mt-2 backdrop-blur-sm">
+                                <span class="text-xl">👉</span>
+                                <span class="font-semibold text-sm">KLIK DI SINI DARI YOUTUBE</span>
+                                <span class="text-xl">👈</span>
+                            </div>
+                        </a>
+                        
+                        <div class="text-center mt-4">
+                            <span class="text-xs text-gray-500 block mb-1">Terima kasih telah membaca Buku Saku ini.</span>
+                            <span class="font-bold text-emerald-600">Mari Wujudkan Remaja Sehat Indonesia!</span>
+                        </div>
+                    </div>
+                `,
+                audioText: "Untuk memahami lebih dalam, silahkan klik tombol banner video edukasi di layar untuk menonton tayangan YouTube. Terima kasih telah membaca buku saku ini. Mari wujudkan generasi remaja sekolah yang sehat dan cerdas!"
+            }
+        ];
+
+        let currentPageIndex = 0;
+        let isAnimating = false;
+        const totalPages = bookData.length;
+
+        const pagesContainer = document.getElementById('pages-container');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+        const pageIndicator = document.getElementById('page-indicator');
+        
+        function renderAllPages() {
+            pagesContainer.innerHTML = ''; 
+            bookData.forEach((pageData, index) => {
+                const pageEl = document.createElement('div');
+                pageEl.className = `page absolute w-full h-full ${index === 0 ? 'active' : 'prev'}`;
+                pageEl.id = `page-${index}`;
+                
+                if (pageData.type === 'cover') {
+                    // Tata letak cover diubah menjadi top-aligned (justify-start) agar tidak pernah memotong tombol
+                    pageEl.classList.add(pageData.bgColor);
+                    pageEl.innerHTML = `
+                        <div class="flex flex-col items-center justify-start h-full text-center space-y-6 ${pageData.textColor} px-6 pt-10 pb-40 overflow-y-auto scroll-area">
+                            <div class="w-28 h-28 sm:w-32 sm:h-32 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border-4 border-white/30 animate-float shadow-lg flex-shrink-0 mt-4">
+                                <span class="text-5xl sm:text-6xl">${pageData.icon}</span>
+                            </div>
+                            <div class="w-full">
+                                <p class="text-[10px] sm:text-xs font-bold tracking-wider uppercase mb-3 opacity-90 border-b border-white/40 pb-2 inline-block">Buku Saku Digital</p>
+                                <h1 class="text-lg sm:text-xl font-extrabold leading-tight mb-4 drop-shadow-md px-2">${pageData.title}</h1>
+                                <div class="bg-black/10 p-3 mx-2 rounded-xl backdrop-blur-sm">
+                                    <h2 class="text-sm sm:text-base font-semibold leading-snug">${pageData.subtitle}</h2>
+                                </div>
+                            </div>
+                            <div class="text-[11px] sm:text-xs animate-bounce opacity-80 font-semibold mt-4 flex-shrink-0">
+                                Geser atau Tekan Next <br> <i class="fas fa-chevron-down mt-1"></i>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    pageEl.innerHTML = `
+                        <div class="max-w-md mx-auto h-full flex flex-col px-6">
+                            <div class="border-b-2 border-emerald-100 pb-3 mb-5 pt-10 flex-shrink-0">
+                                <span class="text-[10px] sm:text-xs font-bold text-emerald-500 tracking-wider uppercase bg-emerald-50 px-2 py-1 rounded">Bab ${index}</span>
+                                <h2 class="text-xl sm:text-2xl font-bold text-gray-800 mt-2 leading-tight">${pageData.title}</h2>
+                                <h3 class="text-xs sm:text-sm text-gray-500 font-medium">${pageData.subtitle}</h3>
+                            </div>
+                            <div class="flex-grow overflow-y-auto scroll-area pr-2 pb-40">
+                                ${pageData.content}
+                            </div>
+                        </div>
+                    `;
+                }
+                pagesContainer.appendChild(pageEl);
+            });
+        }
+
+        function updatePaginationUI() {
+            pageIndicator.innerText = `${currentPageIndex + 1} / ${totalPages}`;
+            btnPrev.disabled = currentPageIndex === 0;
+            
+            if (currentPageIndex === totalPages - 1) {
+                btnNext.innerHTML = 'Selesai <i class="fas fa-check ml-1"></i>';
+                btnNext.classList.replace('bg-emerald-500', 'bg-blue-500');
+                btnNext.classList.replace('hover:bg-emerald-600', 'hover:bg-blue-600');
+            } else {
+                btnNext.innerHTML = 'Next <i class="fas fa-chevron-right ml-1"></i>';
+                btnNext.classList.replace('bg-blue-500', 'bg-emerald-500');
+                btnNext.classList.replace('hover:bg-blue-600', 'hover:bg-emerald-600');
+            }
+        }
+
+        function turnPage(direction) {
+            if (isAnimating) return;
+            const newIndex = direction === 'next' ? currentPageIndex + 1 : currentPageIndex - 1;
+            if (newIndex < 0 || newIndex >= totalPages) return;
+
+            isAnimating = true;
+            stopAudio(); 
+
+            const currentPage = document.getElementById(`page-${currentPageIndex}`);
+            const nextPage = document.getElementById(`page-${newIndex}`);
+
+            if (direction === 'next') {
+                currentPage.style.transform = 'translateX(-100%) scale(0.95)';
+                currentPage.style.opacity = '0';
+                nextPage.style.transform = 'translateX(100%) scale(0.95)';
+                nextPage.style.opacity = '0';
+                nextPage.style.visibility = 'visible';
+                
+                void nextPage.offsetWidth;
+
+                nextPage.style.transform = 'translateX(0) scale(1)';
+                nextPage.style.opacity = '1';
+                nextPage.style.zIndex = '10';
+                currentPage.style.zIndex = '5';
+            } else {
+                currentPage.style.transform = 'translateX(100%) scale(0.95)';
+                currentPage.style.opacity = '0';
+                nextPage.style.transform = 'translateX(-100%) scale(0.95)';
+                nextPage.style.opacity = '0';
+                nextPage.style.visibility = 'visible';
+                
+                void nextPage.offsetWidth;
+
+                nextPage.style.transform = 'translateX(0) scale(1)';
+                nextPage.style.opacity = '1';
+                nextPage.style.zIndex = '10';
+                currentPage.style.zIndex = '5';
+            }
+
+            setTimeout(() => {
+                currentPage.classList.remove('active');
+                currentPage.style.visibility = 'hidden';
+                nextPage.classList.add('active');
+                currentPageIndex = newIndex;
+                updatePaginationUI();
+                isAnimating = false;
+                
+                const scrollArea = nextPage.querySelector('.scroll-area');
+                if (scrollArea) scrollArea.scrollTop = 0;
+                
+                document.getElementById('audio-status').innerText = "Putar Suara Penjelasan";
+                document.getElementById('audio-progress').style.width = "0%";
+            }, 500);
+        }
+
+        let isPlaying = false;
+        let htmlAudioObject = null; // Pemutar MP3
+        let synth = window.speechSynthesis; // Pemutar TTS
+        let utterance = null;
+        let progressInterval;
+
+        const btnPlayAudio = document.getElementById('btn-play-audio');
+        const iconAudio = document.getElementById('icon-audio');
+        const audioStatus = document.getElementById('audio-status');
+        const audioProgress = document.getElementById('audio-progress');
+
+        function playAudio() {
+            if (isPlaying) {
+                stopAudio();
+                return;
+            }
+
+            const currentMp3Link = sumberSuaraMP3[currentPageIndex];
+            const textToSpeak = bookData[currentPageIndex].audioText;
+            
+            if (!textToSpeak && !currentMp3Link) return;
+
+            isPlaying = true;
+            uiSetPlaying();
+
+            // Skenario 1: Jika user sudah menaruh link MP3
+            if (currentMp3Link && currentMp3Link.trim() !== "") {
+                htmlAudioObject = new Audio(currentMp3Link);
+                htmlAudioObject.onplay = () => {
+                    clearInterval(progressInterval);
+                    progressInterval = setInterval(() => {
+                        if (htmlAudioObject.duration) {
+                            const progress = (htmlAudioObject.currentTime / htmlAudioObject.duration) * 100;
+                            audioProgress.style.width = `${progress}%`;
+                        }
+                    }, 100);
+                };
+                htmlAudioObject.onended = stopAudio;
+                htmlAudioObject.onerror = () => {
+                    stopAudio();
+                    audioStatus.innerText = "Gagal memutar MP3. Cek koneksi.";
+                };
+                htmlAudioObject.play().catch(e => {
+                    console.error(e);
+                    stopAudio();
+                });
+            } 
+            // Skenario 2: Menggunakan AI Voice Bawaan (Paling Premium yg ada di HP)
+            else {
+                synth.cancel(); // Bersihkan antrean
+                utterance = new SpeechSynthesisUtterance(textToSpeak);
+                utterance.lang = 'id-ID';
+                utterance.rate = 0.9; // Diperlambat sedikit agar natural
+                utterance.pitch = 1.0; 
+
+                // Cari suara terbaik
+                let voices = synth.getVoices();
+                let idVoices = voices.filter(v => v.lang === 'id-ID' || v.lang === 'id_ID');
+                
+                if(idVoices.length > 0) {
+                    // Prioritaskan suara buatan Google atau Natural
+                    let bestVoice = idVoices.find(v => v.name.includes('Google') || v.name.includes('Premium'));
+                    utterance.voice = bestVoice || idVoices[0];
+                }
+
+                utterance.onstart = () => {
+                    // Simulasi progress bar untuk TTS
+                    const wordCount = textToSpeak.split(' ').length;
+                    const estimatedTimeMs = (wordCount / 2.5) * 1000; 
+                    let progress = 0;
+                    const step = 100 / (estimatedTimeMs / 100);
+
+                    clearInterval(progressInterval);
+                    progressInterval = setInterval(() => {
+                        progress += step;
+                        if (progress >= 100) progress = 100;
+                        audioProgress.style.width = `${progress}%`;
+                    }, 100);
+                };
+                
+                utterance.onend = stopAudio;
+                utterance.onerror = (e) => {
+                    console.error(e);
+                    stopAudio();
+                    audioStatus.innerText = "Sistem audio browser terblokir.";
+                };
+
+                synth.speak(utterance);
+            }
+        }
+
+        function uiSetPlaying() {
+            iconAudio.classList.replace('fa-play', 'fa-pause');
+            btnPlayAudio.classList.replace('bg-emerald-500', 'bg-red-500');
+            btnPlayAudio.classList.replace('hover:bg-emerald-600', 'hover:bg-red-600');
+            audioStatus.innerText = "Sedang Memutar...";
+        }
+
+        function stopAudio() {
+            isPlaying = false;
+            
+            // Hentikan MP3
+            if (htmlAudioObject) {
+                htmlAudioObject.pause();
+                htmlAudioObject.currentTime = 0;
+            }
+            
+            // Hentikan TTS
+            if (synth) {
+                synth.cancel();
+            }
+
+            clearInterval(progressInterval);
+            if(iconAudio) iconAudio.classList.replace('fa-pause', 'fa-play');
+            if(btnPlayAudio) {
+                btnPlayAudio.classList.replace('bg-red-500', 'bg-emerald-500');
+                btnPlayAudio.classList.replace('hover:bg-red-600', 'hover:bg-emerald-600');
+            }
+            if(audioStatus) audioStatus.innerText = "Putar Suara Penjelasan";
+            if(audioProgress) audioProgress.style.width = "0%";
+        }
+
+        // Pancing daftar suara browser saat dimuat
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = () => { synth.getVoices(); };
+        }
+
+        btnNext.addEventListener('click', () => {
+            if(currentPageIndex === totalPages - 1) {
+                turnPage('next'); 
+                currentPageIndex = 0;
+                renderAllPages(); 
+                updatePaginationUI();
+            } else {
+                turnPage('next');
+            }
+        });
+        
+        btnPrev.addEventListener('click', () => turnPage('prev'));
+        btnPlayAudio.addEventListener('click', playAudio);
+
+        // Dukungan Swipe HP
+        let touchstartX = 0;
+        let touchendX = 0;
+        document.getElementById('book-container').addEventListener('touchstart', e => {
+            touchstartX = e.changedTouches[0].screenX;
+        }, {passive: true});
+
+        document.getElementById('book-container').addEventListener('touchend', e => {
+            touchendX = e.changedTouches[0].screenX;
+            if (Math.abs(touchendX - touchstartX) > 50) {
+                touchendX < touchstartX ? turnPage('next') : turnPage('prev');
+            }
+        }, {passive: true});
+
+        window.onload = () => {
+            renderAllPages();
+            updatePaginationUI();
+            synth.getVoices(); // init voice
+        };
+    </script>
+</body>
+</html>
